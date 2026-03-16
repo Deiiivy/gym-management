@@ -1,0 +1,507 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CLIENT
+  TRAINER
+  GYM_OWNER
+  PLATFORM_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum GymStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ExerciseSource {
+  GLOBAL
+  GYM
+  TRAINER
+}
+
+enum ExerciseMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum RoutineStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum WorkoutSessionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+  CANCELLED
+}
+
+enum SetTrackingType {
+  REPS_WEIGHT
+  REPS_ONLY
+  TIME
+  DISTANCE
+}
+
+model User {
+  id               String              @id @default(cuid())
+  email            String              @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  phone            String?
+  birthDate        DateTime?
+  gender           String?
+  avatarUrl        String?
+  role             UserRole
+  status           UserStatus          @default(ACTIVE)
+  lastLoginAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  ownedGyms        Gym[]               @relation("GymOwner")
+  gymUsers         GymUser[]
+  trainerProfile   TrainerProfile?
+  clientProfile    ClientProfile?
+  createdExercises Exercise[]          @relation("ExerciseCreatedBy")
+  createdRoutines  Routine[]           @relation("RoutineCreatedBy")
+  updatedRoutines  Routine[]           @relation("RoutineUpdatedBy")
+  assignedRoutines RoutineAssignment[] @relation("AssignedBy")
+}
+
+model Gym {
+  id                String               @id @default(cuid())
+  name              String
+  slug              String               @unique
+  nit               String?              @unique
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  country           String?
+  logoUrl           String?
+  description       String?
+  status            GymStatus            @default(ACTIVE)
+  ownerId           String
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  owner             User                 @relation("GymOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  users             GymUser[]
+  exercises         Exercise[]
+  routines          Routine[]
+  memberships       Membership[]
+  subscriptions     GymSubscription[]
+  clientProfiles    ClientProfile[]
+  trainerProfiles   TrainerProfile[]
+  workoutSessions   WorkoutSession[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([name])
+}
+
+model GymUser {
+  id           String      @id @default(cuid())
+  gymId        String
+  userId       String
+  role         UserRole
+  isPrimary    Boolean     @default(false)
+  joinedAt     DateTime    @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  gym          Gym         @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([gymId, userId])
+  @@index([userId])
+  @@index([gymId, role])
+}
+
+model TrainerProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  gymId           String
+  bio             String?
+  specialty       String?
+  yearsExperience Int?
+  certifications  String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym             Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId])
+}
+
+model ClientProfile {
+  id                String              @id @default(cuid())
+  userId            String              @unique
+  gymId             String
+  emergencyContact  String?
+  emergencyPhone    String?
+  heightCm          Decimal?            @db.Decimal(5, 2)
+  currentWeightKg   Decimal?            @db.Decimal(6, 2)
+  goalWeightKg      Decimal?            @db.Decimal(6, 2)
+  fitnessGoal       String?
+  medicalNotes      String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gym               Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberships       Membership[]
+  routineAssignments RoutineAssignment[]
+  workoutSessions   WorkoutSession[]
+
+  @@index([gymId])
+}
+
+model Membership {
+  id          String            @id @default(cuid())
+  gymId       String
+  clientId    String
+  startDate   DateTime
+  endDate     DateTime?
+  status      MembershipStatus  @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  gym         Gym               @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  client      ClientProfile     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([gymId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model GymSubscription {
+  id                    String              @id @default(cuid())
+  gymId                 String
+  plan                  SubscriptionPlan
+  status                SubscriptionStatus  @default(TRIALING)
+  billingEmail          String?
+  startedAt             DateTime
+  endsAt                DateTime?
+  trialEndsAt           DateTime?
+  externalReference     String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  gym                   Gym                 @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@index([gymId])
+  @@index([status])
+}
+
+model MuscleGroup {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  exercises   ExerciseMuscleGroup[]
+}
+
+model ExerciseCategory {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  exercises   Exercise[]
+}
+
+model Equipment {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  exercises   ExerciseEquipment[]
+}
+
+model Exercise {
+  id                String                @id @default(cuid())
+  gymId             String?
+  createdById       String
+  categoryId        String?
+  name              String
+  slug              String
+  description       String?
+  instructions      String?
+  difficulty        DifficultyLevel?
+  source            ExerciseSource        @default(GLOBAL)
+  isPublic          Boolean               @default(false)
+  isActive          Boolean               @default(true)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  gym               Gym?                  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  createdBy         User                  @relation("ExerciseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  category          ExerciseCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  media             ExerciseMedia[]
+  muscleGroups      ExerciseMuscleGroup[]
+  equipment         ExerciseEquipment[]
+  routineExercises  RoutineExercise[]
+  performedSets     WorkoutExerciseSet[]
+  workoutExercises  WorkoutExercise[] 
+
+  @@unique([gymId, slug])
+  @@index([gymId])
+  @@index([createdById])
+  @@index([categoryId])
+  @@index([name])
+}
+
+model ExerciseMedia {
+  id           String             @id @default(cuid())
+  exerciseId   String
+  type         ExerciseMediaType
+  url          String
+  title        String?
+  description  String?
+  sortOrder    Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  exercise     Exercise           @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId, sortOrder])
+}
+
+model ExerciseMuscleGroup {
+  exerciseId     String
+  muscleGroupId  String
+  isPrimary      Boolean           @default(false)
+
+  exercise       Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  muscleGroup    MuscleGroup       @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
+
+  @@id([exerciseId, muscleGroupId])
+  @@index([muscleGroupId])
+}
+
+model ExerciseEquipment {
+  exerciseId    String
+  equipmentId   String
+
+  exercise      Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  equipment     Equipment         @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@id([exerciseId, equipmentId])
+  @@index([equipmentId])
+}
+
+model Routine {
+  id                String               @id @default(cuid())
+  gymId             String
+  createdById       String
+  updatedById       String?
+  title             String
+  description       String?
+  objective         String?
+  difficulty        DifficultyLevel?
+  estimatedMinutes  Int?
+  status            RoutineStatus        @default(DRAFT)
+  isTemplate        Boolean              @default(false)
+  isPublic          Boolean              @default(false)
+  version           Int                  @default(1)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  gym               Gym                  @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  createdBy         User                 @relation("RoutineCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy         User?                @relation("RoutineUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  exercises         RoutineExercise[]
+  assignments       RoutineAssignment[]
+
+  @@index([gymId])
+  @@index([createdById])
+  @@index([status])
+  @@index([title])
+}
+
+model RoutineExercise {
+  id                String             @id @default(cuid())
+  routineId         String
+  exerciseId        String
+  dayNumber         Int?
+  sessionLabel      String?
+  order             Int
+  notes             String?
+  sets              Int?
+  repsMin           Int?
+  repsMax           Int?
+  targetWeightKg    Decimal?           @db.Decimal(6, 2)
+  restSeconds       Int?
+  durationSeconds   Int?
+  distanceMeters    Int?
+  trackingType      SetTrackingType    @default(REPS_WEIGHT)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  routine           Routine            @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exercise          Exercise           @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  workoutExercises  WorkoutExercise[]
+
+  @@unique([routineId, order])
+  @@index([exerciseId])
+  @@index([routineId, dayNumber])
+  @@index([routineId, sessionLabel])
+}
+
+model RoutineAssignment {
+  id                String               @id @default(cuid())
+  routineId         String
+  clientId          String
+  assignedById      String
+  titleSnapshot     String?
+  startDate         DateTime
+  endDate           DateTime?
+  status            AssignmentStatus     @default(ACTIVE)
+  notes             String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  routine           Routine              @relation(fields: [routineId], references: [id], onDelete: Restrict)
+  client            ClientProfile        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assignedBy        User                 @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  workoutSessions   WorkoutSession[]
+
+  @@index([routineId])
+  @@index([clientId])
+  @@index([assignedById])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model WorkoutSession {
+  id                  String                @id @default(cuid())
+  gymId               String
+  clientId            String
+  routineAssignmentId String?
+  performedAt         DateTime              @default(now())
+  sessionDate         DateTime
+  startedAt           DateTime?
+  endedAt             DateTime?
+  status              WorkoutSessionStatus  @default(PLANNED)
+  notes               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  gym                 Gym                   @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  client              ClientProfile         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  routineAssignment   RoutineAssignment?    @relation(fields: [routineAssignmentId], references: [id], onDelete: SetNull)
+  exercises           WorkoutExercise[]
+
+  @@index([gymId])
+  @@index([clientId])
+  @@index([routineAssignmentId])
+  @@index([sessionDate])
+  @@index([status])
+}
+
+model WorkoutExercise {
+  id                 String               @id @default(cuid())
+  workoutSessionId   String
+  routineExerciseId  String?
+  exerciseId         String
+  order              Int
+  notes              String?
+  completed          Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  workoutSession     WorkoutSession       @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  routineExercise    RoutineExercise?     @relation(fields: [routineExerciseId], references: [id], onDelete: SetNull)
+  exercise           Exercise             @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+  sets               WorkoutExerciseSet[]
+
+  @@unique([workoutSessionId, order])
+  @@index([exerciseId])
+  @@index([routineExerciseId])
+}
+
+model WorkoutExerciseSet {
+  id                 String            @id @default(cuid())
+  workoutExerciseId  String
+  exerciseId         String
+  setNumber          Int
+  trackingType       SetTrackingType   @default(REPS_WEIGHT)
+  plannedReps        Int?
+  actualReps         Int?
+  plannedWeightKg    Decimal?          @db.Decimal(6, 2)
+  actualWeightKg     Decimal?          @db.Decimal(6, 2)
+  plannedSeconds     Int?
+  actualSeconds      Int?
+  plannedDistanceM   Int?
+  actualDistanceM    Int?
+  isCompleted        Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  workoutExercise    WorkoutExercise   @relation(fields: [workoutExerciseId], references: [id], onDelete: Cascade)
+  exercise           Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  @@unique([workoutExerciseId, setNumber])
+  @@index([exerciseId])
+}
