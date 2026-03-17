@@ -96,3 +96,293 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+# Gym Management Backend
+
+Backend del proyecto **Gym Management**, construido con **NestJS**, **Prisma** y **PostgreSQL**.
+
+Este backend expone una API para autenticación y gestión de usuarios del sistema, permitiendo el registro e inicio de sesión de los diferentes tipos de usuario de la plataforma:
+
+- `GYM_OWNER`
+- `TRAINER`
+- `CLIENT`
+
+También deja preparada la base para continuar con módulos como:
+
+- gimnasios
+- usuarios
+- ejercicios
+- rutinas
+- asignaciones
+- progreso de entrenamiento
+
+---
+
+# Tabla de contenido
+
+- [Tecnologías usadas](#tecnologías-usadas)
+- [Arquitectura del proyecto](#arquitectura-del-proyecto)
+- [Módulo implementado](#módulo-implementado)
+- [Roles del sistema](#roles-del-sistema)
+- [Modelo de base de datos relacionado con auth](#modelo-de-base-de-datos-relacionado-con-auth)
+- [Flujo de registro por tipo de usuario](#flujo-de-registro-por-tipo-de-usuario)
+- [Endpoints disponibles](#endpoints-disponibles)
+- [Configuración del entorno](#configuración-del-entorno)
+- [Instalación de dependencias](#instalación-de-dependencias)
+- [Comandos importantes](#comandos-importantes)
+- [Estructura de carpetas](#estructura-de-carpetas)
+- [Detalle de la arquitectura por capas](#detalle-de-la-arquitectura-por-capas)
+- [Seguridad implementada](#seguridad-implementada)
+- [Cómo probar el módulo](#cómo-probar-el-módulo)
+- [Pruebas recomendadas](#pruebas-recomendadas)
+- [Qué validar en la base de datos](#qué-validar-en-la-base-de-datos)
+- [Problemas comunes](#problemas-comunes)
+- [Siguientes pasos recomendados](#siguientes-pasos-recomendados)
+
+---
+
+# Tecnologías usadas
+
+Este backend usa:
+
+- **NestJS** para la construcción del servidor y la API
+- **Prisma ORM** para acceso a base de datos
+- **PostgreSQL** como motor de base de datos
+- **JWT** para autenticación
+- **Passport** para estrategia de autenticación
+- **bcrypt** para hashing de contraseñas
+- **class-validator** y **class-transformer** para validación de DTOs
+- **Helmet** para cabeceras de seguridad
+- **Swagger** para documentación de endpoints
+
+---
+
+# Arquitectura del proyecto
+
+El backend se está organizando usando una arquitectura por capas dentro de cada módulo:
+
+- **domain**
+- **application**
+- **infrastructure**
+
+Esto permite separar responsabilidades y dejar el proyecto listo para crecer de manera ordenada.
+
+## Capas
+
+### Domain
+Contiene la lógica de dominio pura:
+- errores del dominio
+- entidades
+- reglas del negocio independientes de frameworks
+
+### Application
+Contiene los casos de uso del sistema:
+- `register`
+- `login`
+- `get me`
+
+También contiene:
+- DTOs
+- puertos (contratos o interfaces abstractas)
+
+### Infrastructure
+Contiene las implementaciones técnicas:
+- controllers de NestJS
+- Prisma repositories
+- strategy JWT
+- guards
+- servicios de bcrypt y JWT
+- module de NestJS
+
+---
+
+# Módulo implementado
+
+Actualmente el módulo implementado es:
+
+## Auth
+
+Este módulo permite:
+
+- registrar usuarios
+- iniciar sesión
+- obtener el usuario autenticado actual
+- generar tokens JWT
+- proteger endpoints con autenticación
+
+---
+
+# Roles del sistema
+
+Los roles actualmente manejados son:
+
+## `GYM_OWNER`
+Representa al dueño o administrador principal del gimnasio.
+
+Puede usarse luego para:
+- administrar el gimnasio
+- crear entrenadores
+- crear clientes
+- ver usuarios del gimnasio
+- gestionar operaciones administrativas
+
+## `TRAINER`
+Representa al entrenador.
+
+Puede usarse luego para:
+- crear ejercicios
+- crear rutinas
+- asignar rutinas
+- ver progreso de clientes
+
+## `CLIENT`
+Representa al cliente o usuario final del gimnasio.
+
+Puede usarse luego para:
+- iniciar sesión desde móvil
+- ver su rutina
+- registrar progreso
+- consultar historial
+
+## `PLATFORM_ADMIN`
+Existe en el esquema, pero **no se permite su registro público**.
+
+Ese rol debe crearse de forma manual o por seed, no desde el endpoint público de registro.
+
+---
+
+# Modelo de base de datos relacionado con auth
+
+El sistema **no usa un `gymId` directo dentro de `User`**.
+
+La relación entre usuarios y gimnasios está modelada de forma más robusta con estas tablas:
+
+- `User`
+- `Gym`
+- `GymUser`
+- `TrainerProfile`
+- `ClientProfile`
+
+## Relaciones principales
+
+### `User`
+Guarda la información base del usuario:
+- email
+- passwordHash
+- nombre
+- apellido
+- role
+- status
+- datos personales básicos
+
+### `Gym`
+Representa un gimnasio.
+
+Tiene un `ownerId` que apunta al usuario dueño.
+
+### `GymUser`
+Es la tabla puente entre `Gym` y `User`.
+
+Sirve para indicar:
+- a qué gimnasio pertenece un usuario
+- con qué rol pertenece
+- si es su relación principal
+
+### `TrainerProfile`
+Perfil específico de entrenador.
+
+### `ClientProfile`
+Perfil específico de cliente.
+
+---
+
+# Flujo de registro por tipo de usuario
+
+El endpoint de registro soporta actualmente:
+
+- `GYM_OWNER`
+- `TRAINER`
+- `CLIENT`
+
+## 1. Registro de `GYM_OWNER`
+
+Cuando se registra un `GYM_OWNER`, el sistema:
+
+1. crea un `User`
+2. crea un `Gym`
+3. asigna el gimnasio al owner usando `ownerId`
+4. crea un `GymUser` con rol `GYM_OWNER`
+
+### Requiere:
+- `gymName`
+- `gymSlug`
+
+## 2. Registro de `TRAINER`
+
+Cuando se registra un `TRAINER`, el sistema:
+
+1. crea un `User`
+2. crea un `GymUser`
+3. crea un `TrainerProfile`
+
+### Requiere:
+- `gymId`
+
+## 3. Registro de `CLIENT`
+
+Cuando se registra un `CLIENT`, el sistema:
+
+1. crea un `User`
+2. crea un `GymUser`
+3. crea un `ClientProfile`
+
+### Requiere:
+- `gymId`
+
+## 4. Registro de `PLATFORM_ADMIN`
+
+No está permitido desde el endpoint público.
+
+Si se intenta registrar desde el endpoint, el sistema devuelve error.
+
+---
+
+# Endpoints disponibles
+
+Actualmente el backend expone estos endpoints:
+
+## `POST /api/auth/register`
+Permite registrar un usuario.
+
+Soporta:
+- `GYM_OWNER`
+- `TRAINER`
+- `CLIENT`
+
+## `POST /api/auth/login`
+Permite iniciar sesión con:
+- email
+- password
+
+Devuelve:
+- `accessToken`
+- información básica del usuario
+
+## `GET /api/auth/me`
+Devuelve el usuario autenticado actual.
+
+Requiere:
+- Bearer token válido
+
+---
+
+# Configuración del entorno
+
+Debes crear un archivo `.env` dentro de `backend/`.
+
+## Ejemplo
+
+```env
+DATABASE_URL="postgresql://postgres:TU_PASSWORD@HOST:PUERTO/railway"
+JWT_SECRET="una-clave-super-segura-y-larga"
+PORT=3000
