@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 
 import { UserAuthRepositoryPort } from '../ports/user-auth.repository';
+import { getPermissionsByRole } from './get-permissions-by-role';
 
 @Injectable()
 export class GetMeUseCase {
@@ -30,6 +31,7 @@ export class GetMeUseCase {
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      permissions: getPermissionsByRole(user.role),
     };
   }
 }

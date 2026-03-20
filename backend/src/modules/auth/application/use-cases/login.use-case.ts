@@ -1,13 +1,14 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { UserStatus } from '@prisma/client';
 
-import { LoginResponse } from '../../auth.types';
-import { AuthInvalidCredentialsError } from '../../domain/entities/errors/auth-invalid-credentials.error';
-import { AuthUserInactiveError } from '../../domain/entities/errors/auth-user-inactive.error';
+import { LoginDto } from '../dto/login.dto';
 import { PasswordHasherPort } from '../ports/password-hasher.port';
 import { TokenGeneratorPort } from '../ports/token-generator.port';
 import { UserAuthRepositoryPort } from '../ports/user-auth.repository';
-import { LoginDto } from '../dto/login.dto';
+import { LoginResponse } from '../../auth.types';
+import { AuthInvalidCredentialsError } from '../../domain/entities/errors/auth-invalid-credentials.error';
+import { AuthUserInactiveError } from '../../domain/entities/errors/auth-user-inactive.error';
+import { getPermissionsByRole } from './get-permissions-by-role';
 
 @Injectable()
 export class LoginUseCase {
@@ -25,7 +26,9 @@ export class LoginUseCase {
 
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException(new AuthInvalidCredentialsError().message);
+      throw new UnauthorizedException(
+        new AuthInvalidCredentialsError().message,
+      );
     }
 
     if (user.status !== UserStatus.ACTIVE) {
@@ -38,7 +41,9 @@ export class LoginUseCase {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException(new AuthInvalidCredentialsError().message);
+      throw new UnauthorizedException(
+        new AuthInvalidCredentialsError().message,
+      );
     }
 
     await this.userRepository.updateLastLogin(user.id);
@@ -50,6 +55,8 @@ export class LoginUseCase {
       status: user.status,
     });
 
+    const permissions = getPermissionsByRole(user.role);
+
     return {
       accessToken,
       user: {
@@ -60,6 +67,7 @@ export class LoginUseCase {
         role: user.role,
         status: user.status,
         avatarUrl: user.avatarUrl,
+        permissions,
       },
     };
   }

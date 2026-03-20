@@ -1,10 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { UserStatus } from '@prisma/client';
+import { ExtractJwt, Strategy, type StrategyOptions } from 'passport-jwt';
 
 import { PrismaService } from '../../../../shared/infrastructure/prisma/prisma.service';
+import { getPermissionsByRole } from '../../application/use-cases/get-permissions-by-role';
 import { JwtPayload } from '../../auth.types';
+import { AuthUser } from '../../domain/auth-user.type';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -15,14 +17,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new Error('JWT_SECRET is not configured');
     }
 
-    super({
+    const options: StrategyOptions = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
-    });
+    };
+
+    super(options);
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<AuthUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -44,6 +48,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User is not active');
     }
 
-    return user;
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      status: user.status,
+      avatarUrl: user.avatarUrl,
+      permissions: getPermissionsByRole(user.role),
+    };
   }
 }
