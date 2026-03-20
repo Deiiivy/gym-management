@@ -1,5 +1,7 @@
 import { UserRole, UserStatus } from '@prisma/client';
 
+import { Permission } from './domain/permission.enum';
+
 export type JwtPayload = {
   sub: string;
   email: string;
@@ -15,6 +17,7 @@ export type AuthUserResponse = {
   role: UserRole;
   status: UserStatus;
   avatarUrl: string | null;
+  permissions: Permission[];
 };
 
 export type LoginResponse = {
@@ -34,5 +37,6 @@ export type RegisterResponse = {
     role: UserRole;
     status: UserStatus;
     createdAt: Date;
+    permissions: Permission[];
   };
 };

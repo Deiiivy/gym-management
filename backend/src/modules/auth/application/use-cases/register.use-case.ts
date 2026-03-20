@@ -11,6 +11,7 @@ import { PasswordHasherPort } from '../ports/password-hasher.port';
 import { TokenGeneratorPort } from '../ports/token-generator.port';
 import { UserAuthRepositoryPort } from '../ports/user-auth.repository';
 import { RegisterDto } from '../dto/register.dto';
+import { getPermissionsByRole } from './get-permissions-by-role';
 
 @Injectable()
 export class RegisterUseCase {
@@ -39,7 +40,9 @@ export class RegisterUseCase {
 
     if (dto.role === UserRole.TRAINER || dto.role === UserRole.CLIENT) {
       if (!dto.gymId) {
-        throw new BadRequestException(`${dto.role} registration requires gymId`);
+        throw new BadRequestException(
+          `${dto.role} registration requires gymId`,
+        );
       }
 
       const gymExists = await this.userRepository.gymExists(dto.gymId);
@@ -132,6 +135,7 @@ export class RegisterUseCase {
         role: user.role,
         status: user.status,
         createdAt: user.createdAt,
+        permissions: getPermissionsByRole(user.role),
       },
     };
   }
