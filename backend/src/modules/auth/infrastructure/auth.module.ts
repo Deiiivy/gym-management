@@ -8,7 +8,6 @@ import { TokenGeneratorPort } from '../application/ports/token-generator.port';
 import { UserAuthRepositoryPort } from '../application/ports/user-auth.repository';
 import { GetMeUseCase } from '../application/use-cases/get-me.use-case';
 import { LoginUseCase } from '../application/use-cases/login.use-case';
-import { RegisterUseCase } from '../application/use-cases/register.use-case';
 import { AuthController } from './controllers/auth.controller';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
@@ -28,7 +27,6 @@ import { JwtStrategy } from './security/jwt.strategy';
   ],
   controllers: [AuthController],
   providers: [
-    RegisterUseCase,
     LoginUseCase,
     GetMeUseCase,
     JwtStrategy,
@@ -47,6 +45,6 @@ import { JwtStrategy } from './security/jwt.strategy';
       useClass: JwtTokenGeneratorService,
     },
   ],
-  exports: [RegisterUseCase, LoginUseCase, GetMeUseCase, PermissionsGuard],
+  exports: [LoginUseCase, GetMeUseCase, PermissionsGuard],
 })
 export class AuthModule {}

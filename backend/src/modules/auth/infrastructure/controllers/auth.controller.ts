@@ -10,9 +10,7 @@ import {
 
 import { GetMeUseCase } from '../../application/use-cases/get-me.use-case';
 import { LoginUseCase } from '../../application/use-cases/login.use-case';
-import { RegisterUseCase } from '../../application/use-cases/register.use-case';
 import { LoginDto } from '../../application/dto/login.dto';
-import { RegisterDto } from '../../application/dto/register.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 type RequestWithUser = {
@@ -25,18 +23,9 @@ type RequestWithUser = {
 @Controller('auth')
 export class AuthController {
   constructor(
-    private readonly registerUseCase: RegisterUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly getMeUseCase: GetMeUseCase,
   ) {}
-
-  @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiBody({ type: RegisterDto })
-  @ApiOkResponse({ description: 'User registered successfully' })
-  register(@Body() dto: RegisterDto) {
-    return this.registerUseCase.execute(dto);
-  }
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
