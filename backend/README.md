@@ -383,6 +383,6 @@ Debes crear un archivo `.env` dentro de `backend/`.
 ## Ejemplo
 
 ```env
-DATABASE_URL="postgresql://postgres:TU_PASSWORD@HOST:PUERTO/railway"
+DATABASE_URL="postgresql://[NOMBRE_DE_USUARIO]:[TU_PASSWORD]@[HOST]:[PUERTO]/[NOMBRE_DB]"
 JWT_SECRET="una-clave-super-segura-y-larga"
 PORT=3000
